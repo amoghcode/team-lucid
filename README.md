@@ -13,4 +13,13 @@ The guided demo is local-only and uses fictional data. Its caregiver PIN is `246
 
 ## Production
 
-`npm run build` creates the static `dist/` directory. Set `frontend/config.js` to the public HTTPS API URL before building. `render.yaml` describes the FastAPI deployment; set `MONGODB_URI` and `ALLOWED_ORIGINS` in the service environment.
+`npm run build` creates the static `dist/` directory. Set `frontend/config.js` to the exact public Render API URL (including `/api`) before building. `render.yaml` describes the FastAPI deployment; set `MONGODB_URI` and set `ALLOWED_ORIGINS` to the exact frontend origins in the Render service environment. Do not include a trailing slash in an origin.
+
+Example production configuration:
+
+```js
+globalThis.SMRITIAI_API_URL = "https://your-render-service.onrender.com/api";
+```
+
+The production frontend intentionally reports a clear configuration error when this value is missing instead of silently sending authentication details to `localhost`.
+

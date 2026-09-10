@@ -79,9 +79,12 @@ function authPage() {
     bindLanguageSelect(); document.querySelectorAll("[data-mode]").forEach((b) => b.onclick = () => { mode = b.dataset.mode; draw(); });
     document.querySelector("#demo-start").onclick = async () => { await seedDemo(); await loadState(); location.hash = "#/patient"; };
     document.querySelector("#auth-form").onsubmit = async (event) => {
-      event.preventDefault(); const form = Object.fromEntries(new FormData(event.currentTarget)); const error = document.querySelector("#auth-error"); error.textContent = "Connecting securely…";
-      try { const data = await authenticate(mode, form); if (data.profile) await db.save("profiles", { ...data.profile, caregiverPinVerifier: mode === "register" ? await createPinVerifier(form.caregiverPin) : data.profile.caregiverPinVerifier }, false); await loadState(); location.hash = "#/patient"; }
-      catch (err) { error.textContent = navigator.onLine ? err.message : "Internet is needed for the first sign-in. The demo remains available offline."; }
+      event.preventDefault();
+      const submit = event.currentTarget.querySelector('[type="submit"]');
+      if (submit.disabled) return;
+      const form = Object.fromEntries(new FormData(event.currentTarget)); const error = document.querySelector("#auth-error"); error.textContent = "Connecting securely…"; submit.disabled = true;
+      try { const data = await authenticate(mode, form); if (data.profile) await db.save("profiles", { ...data.profile, caregiverPinVerifier: mode === "register" ? await createPinVerifier(form.caregiverPin.trim()) : data.profile.caregiverPinVerifier }, false); await loadState(); location.hash = "#/patient"; }
+      catch (err) { error.textContent = navigator.onLine ? err.message : "Internet is needed for the first sign-in. The demo remains available offline."; submit.disabled = false; }
     };
   }; draw();
 }
@@ -268,3 +271,4 @@ dialog.addEventListener("click",(e)=>{if(e.target===dialog)closeDialog();});
 if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
 setLanguage(getLanguage());updateConnection();render();
 registerWebMCP();
+

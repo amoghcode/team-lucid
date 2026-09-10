@@ -1,4 +1,4 @@
-const CACHE = "smritiai-v2";
+const CACHE = "smritiai-v3";
 const SHELL = [
   "./", "./index.html", "./styles.css", "./app.js", "./config.js", "./manifest.json",
   "./js/db.js", "./js/i18n.js", "./js/seed.js", "./js/api.js", "./js/analytics.js", "./js/games.js",
@@ -17,3 +17,4 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => { if (response.ok && url.origin === location.origin) caches.open(CACHE).then((cache) => cache.put(event.request, response.clone())); return response; }).catch(() => caches.match("./index.html"))));
 });
 self.addEventListener("sync", (event) => { if (event.tag === "smritiai-sync") event.waitUntil(self.clients.matchAll({ type: "window" }).then((clients) => clients.forEach((client) => client.postMessage({ type: "SYNC_REQUESTED" })))); });
+

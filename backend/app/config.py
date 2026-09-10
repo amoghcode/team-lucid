@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="development-secret-change-before-production-1234", min_length=32)
     access_token_minutes: int = 15
     refresh_token_days: int = 3650
-    allowed_origins: str = "http://localhost:5173,http://localhost:8080"
+    allowed_origins: str = "http://localhost:5173,http://localhost:5174,http://localhost:8080,https://smritiai-care.aegontargaryenmmcci.chatgpt.site"
     environment: str = "development"
     max_upload_bytes: int = 5 * 1024 * 1024
 
@@ -17,9 +17,10 @@ class Settings(BaseSettings):
 
     @property
     def origins(self) -> list[str]:
-        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+        return list(dict.fromkeys(origin.strip().rstrip("/") for origin in self.allowed_origins.split(",") if origin.strip()))
 
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+

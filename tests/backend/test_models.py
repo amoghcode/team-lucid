@@ -12,6 +12,20 @@ def test_registration_requires_numeric_caregiver_pin():
         RegisterRequest(email="family@example.com", password="longpassword", patientName="Aita", caregiverName="Ananya", caregiverPin="abcd")
 
 
+def test_registration_trims_form_values():
+    request = RegisterRequest(
+        email=" family@example.com ",
+        password=" longpassword ",
+        patientName=" Aita ",
+        caregiverName=" Ananya ",
+        caregiverPin=" 2468 ",
+    )
+    assert str(request.email) == "family@example.com"
+    assert request.patientName == "Aita"
+    assert request.caregiverName == "Ananya"
+    assert request.caregiverPin == "2468"
+
+
 def test_game_scores_are_bounded():
     with pytest.raises(ValueError):
         GameResult(id="game-1", game="memory", difficulty="easy", score=120, accuracy=90, speed=80, mistakes=1, responseTime=20)
@@ -20,3 +34,4 @@ def test_game_scores_are_bounded():
 def test_reminder_accepts_valid_time():
     reminder = Reminder(id="reminder-1", title="Medicine", category="medication", time="08:30")
     assert reminder.time == "08:30"
+

@@ -8,6 +8,8 @@ def utc_now() -> datetime:
 
 
 class RegisterRequest(BaseModel):
+    model_config = {"str_strip_whitespace": True}
+
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     patientName: str = Field(min_length=1, max_length=80)
@@ -16,6 +18,8 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
+    model_config = {"str_strip_whitespace": True}
+
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
 
@@ -86,3 +90,4 @@ class TokenResponse(BaseModel):
     refreshToken: str
     tokenType: str = "bearer"
     profile: dict[str, Any]
+

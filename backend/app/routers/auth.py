@@ -24,18 +24,28 @@ async def register(request: Request, body: RegisterRequest) -> TokenResponse:
     now = datetime.now(timezone.utc)
     account_id = f"family_{uuid4()}"
     profile_id = f"profile_{uuid4()}"
+    account_created = False
     try:
-        await database.accounts.insert_one({"id": account_id, "email": body.email.lower(), "passwordHash": hash_secret(body.password), "caregiverPinHash": hash_secret(body.caregiverPin), "createdAt": now, "updatedAt": now})
+        await database.accounts.insert_one({"id": account_id, "email": str(body.email).lower(), "passwordHash": hash_secret(body.password), "caregiverPinHash": hash_secret(body.caregiverPin), "createdAt": now, "updatedAt": now})
+        account_created = True
+        await database.profiles.insert_one({"id": profile_id, "familyAccountId": account_id, "patientName": body.patientName, "caregiverName": body.caregiverName, "language": "en", "createdAt": now, "updatedAt": now, "lastActiveAt": now})
+        return await token_response(account_id)
     except DuplicateKeyError as exc:
         raise HTTPException(status_code=409, detail="An account already exists for this email") from exc
-    await database.profiles.insert_one({"id": profile_id, "familyAccountId": account_id, "patientName": body.patientName, "caregiverName": body.caregiverName, "language": "en", "createdAt": now, "updatedAt": now, "lastActiveAt": now})
-    return await token_response(account_id)
+    except Exception:
+        # Registration spans several MongoDB collections. Compensate on failure so
+        # a later retry never encounters an account without its profile or tokens.
+        await database.refresh_tokens.delete_many({"familyAccountId": account_id})
+        await database.profiles.delete_many({"familyAccountId": account_id})
+        if account_created:
+            await database.accounts.delete_one({"id": account_id})
+        raise
 
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("8/minute")
 async def login(request: Request, body: LoginRequest) -> TokenResponse:
-    account = await database.accounts.find_one({"email": body.email.lower()})
+    account = await database.accounts.find_one({"email": str(body.email).lower()})
     if not account or not verify_secret(account["passwordHash"], body.password):
         raise HTTPException(status_code=401, detail="Email or password is incorrect")
     return await token_response(account["id"])
@@ -61,3 +71,4 @@ async def unlock(request: Request, body: dict[str, str], account_id: str = Depen
     if not account or not verify_secret(account["caregiverPinHash"], body.get("pin", "")):
         raise HTTPException(status_code=403, detail="Caregiver PIN is incorrect")
     return {"verified": True}
+
