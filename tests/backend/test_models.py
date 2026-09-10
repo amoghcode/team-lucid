@@ -4,12 +4,17 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[2] / "backend"))
 
-from app.models import GameResult, RegisterRequest, Reminder
+from app.models import CaregiverUnlockRequest, GameResult, RegisterRequest, Reminder
 
 
 def test_registration_requires_numeric_caregiver_pin():
     with pytest.raises(ValueError):
         RegisterRequest(email="family@example.com", password="longpassword", patientName="Aita", caregiverName="Ananya", caregiverPin="abcd")
+
+
+def test_caregiver_unlock_requires_a_numeric_pin():
+    with pytest.raises(ValueError):
+        CaregiverUnlockRequest(pin="abcd")
 
 
 def test_game_scores_are_bounded():

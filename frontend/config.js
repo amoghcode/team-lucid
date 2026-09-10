@@ -1,1 +1,1 @@
-globalThis.SMRITIAI_API_URL = "http://localhost:8000/api";
+globalThis.SMRITIAI_API_URL = `${location.protocol}//${location.hostname}:8000/api`;

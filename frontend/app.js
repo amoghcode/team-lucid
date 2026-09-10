@@ -1,7 +1,7 @@
 import { db, active, timestamp, uid, tombstone } from "./js/db.js";
 import { languages, t, setLanguage, getLanguage, locale } from "./js/i18n.js";
 import { seedDemo, resetDemo } from "./js/seed.js";
-import { api, authenticate, syncNow } from "./js/api.js";
+import { api, authenticate, getSession, logout, syncNow } from "./js/api.js";
 import { calculateAnalytics, adaptDifficulty, trendSeries, detectAlerts, achievementState } from "./js/analytics.js";
 import { GAME_META, startGame } from "./js/games.js";
 
@@ -16,7 +16,7 @@ let activeChart;
 let installEvent;
 
 const escapeHTML = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
-const session = () => JSON.parse(localStorage.getItem("smritiai_session") || "null");
+const session = () => getSession();
 const formatDate = (date) => new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long" }).format(date);
 const iconFor = (category) => ({ medication: "💊", hydration: "💧", exercise: "🌿", appointment: "📅", daily: "☀️" })[category] || "◷";
 
@@ -57,7 +57,7 @@ function closeDialog() { dialog.close(); dialogContent.innerHTML = ""; }
 function landingPage() {
   showChrome(false);
   main.innerHTML = `<section class="landing">
-    <nav class="landing-nav"><a class="brand" href="#/"><span class="brand-mark">S</span><span><strong>SmritiAI</strong><small>स्मृति · Memory</small></span></a>${languageSelect()}</nav>
+    <nav class="landing-nav"><a class="brand" href="#/"><span class="brand-mark">S</span><span><strong>Smaran</strong><small>स्मृति · Memory</small></span></a>${languageSelect()}</nav>
     <div class="hero"><div class="hero-copy"><span class="tag">● Built for gentle daily support</span><h1>Every memory deserves a <em>familiar path home.</em></h1><p class="lead">Simple games, family moments, reminders and reassuring companionship — designed for older adults and the people who care for them.</p><div class="button-row"><button class="primary-button" id="demo-start">${t("demo")}</button><a class="secondary-button" href="#/auth">${t("login")}</a><button class="secondary-button" id="install-app" ${installEvent ? "" : "hidden"}>${t("install")}</button></div><div class="trust-row"><span>Works offline</span><span>Large, clear controls</span><span>Private family space</span></div></div>
     <div class="memory-window" aria-label="A sample family memory"><div class="sun-disc"></div><article class="memory-card-hero"><div class="family-collage"><img src="./assets/images/demo-ananya.png" alt="Fictional daughter Ananya"><img src="./assets/images/demo-ranjit.png" alt="Fictional son Ranjit"><img src="./assets/images/demo-mili.png" alt="Fictional granddaughter Mili"></div><blockquote>“These are the faces that make every day feel like home.”</blockquote><small>Fictional demo family</small></article></div></div></section>`;
   document.querySelector("#demo-start").onclick = async () => { await seedDemo(); await loadState(); location.hash = "#/patient"; };
@@ -80,7 +80,20 @@ function authPage() {
     document.querySelector("#demo-start").onclick = async () => { await seedDemo(); await loadState(); location.hash = "#/patient"; };
     document.querySelector("#auth-form").onsubmit = async (event) => {
       event.preventDefault(); const form = Object.fromEntries(new FormData(event.currentTarget)); const error = document.querySelector("#auth-error"); error.textContent = "Connecting securely…";
-      try { const data = await authenticate(mode, form); if (data.profile) await db.save("profiles", { ...data.profile, caregiverPinVerifier: mode === "register" ? await createPinVerifier(form.caregiverPin) : data.profile.caregiverPinVerifier }, false); await loadState(); location.hash = "#/patient"; }
+      try {
+        const data = await authenticate(mode, form);
+        await db.clearAll();
+        sessionStorage.removeItem("caregiver_unlocked");
+        if (data.profile) {
+          await db.save("profiles", {
+            ...data.profile,
+            caregiverPinVerifier: mode === "register" ? await createPinVerifier(form.caregiverPin) : data.profile.caregiverPinVerifier
+          }, false);
+        }
+        try { await syncNow(); } catch { /* first login still works offline after this */ }
+        await loadState();
+        location.hash = "#/patient";
+      }
       catch (err) { error.textContent = navigator.onLine ? err.message : "Internet is needed for the first sign-in. The demo remains available offline."; }
     };
   }; draw();
@@ -191,7 +204,16 @@ function analyticsPage() {
   bindCaregiverNav(); document.querySelector("#download-report").onclick=downloadReport; drawTrendChart();
 }
 
-function bindCaregiverNav(){document.querySelector("#return-patient").onclick=()=>{sessionStorage.removeItem("caregiver_unlocked");location.hash="#/patient";};document.querySelector("#sign-out").onclick=()=>{localStorage.removeItem("smritiai_session");sessionStorage.clear();location.hash="#/";};}
+function bindCaregiverNav(){
+  document.querySelector("#return-patient").onclick=()=>{sessionStorage.removeItem("caregiver_unlocked");location.hash="#/patient";};
+  document.querySelector("#sign-out").onclick=signOut;
+}
+
+async function signOut() {
+  await logout();
+  location.hash = "#/";
+  render();
+}
 function drawTrendChart(){const canvas=document.querySelector("#trend-chart");if(!canvas||!globalThis.Chart)return;activeChart?.destroy();const series=trendSeries(appState.results);activeChart=new Chart(canvas,{type:"line",data:{labels:series.map(x=>x.label),datasets:[{label:"Engagement score",data:series.map(x=>x.value),borderColor:"#0b6b68",backgroundColor:"rgba(21,149,143,.14)",fill:true,tension:.35,pointRadius:5,pointBackgroundColor:"#fff",pointBorderWidth:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:100,grid:{color:"#e5eeec"}},x:{grid:{display:false}}}}});}
 
 async function downloadReport(){
@@ -206,9 +228,9 @@ async function downloadReport(){
 async function confirmSOS(){openDialog(`<div class="dialog-head"><div><p class="eyebrow" style="color:var(--danger)">Please confirm</p><h2>Alert your caregiver?</h2></div><button id="dialog-close">×</button></div><p>${t("emergencyNote")}</p><div class="button-row"><button class="danger-button" id="confirm-sos">Yes, alert them</button><button class="secondary-button" id="dialog-cancel">Cancel</button></div>`);document.querySelector("#dialog-close").onclick=closeDialog;document.querySelector("#dialog-cancel").onclick=closeDialog;document.querySelector("#confirm-sos").onclick=async()=>{await db.save("alerts",{type:"sos",message:"Emergency help was requested from the patient dashboard.",status:"active",demoOnly:!!session()?.demo},!session()?.demo);closeDialog();const button=document.querySelector("#sos-button");button?.classList.add("pulse");beep();toast("Caregiver alert recorded on this device.");speak("Your caregiver alert has been recorded. You are not alone.");};}
 function beep(){const AudioContext=globalThis.AudioContext||globalThis.webkitAudioContext;if(!AudioContext)return;const ctx=new AudioContext(),o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=620;g.gain.setValueAtTime(.08,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.7);o.start();o.stop(ctx.currentTime+.7);}
 
-function pinGate(){openDialog(`<div class="dialog-head"><div><p class="eyebrow">Private caregiver area</p><h2>${t("unlock")}</h2></div><button id="dialog-close">×</button></div><p class="muted">${t("enterPin")}</p><form id="pin-form"><div class="field"><input class="pin-input" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" required autofocus></div><p id="pin-error" role="alert"></p><div class="button-row"><button class="primary-button">Unlock</button><button type="button" class="secondary-button" id="dialog-cancel">${t("cancel")}</button></div></form>`);document.querySelector("#dialog-close").onclick=()=>{closeDialog();location.hash="#/patient"};document.querySelector("#dialog-cancel").onclick=()=>{closeDialog();location.hash="#/patient"};document.querySelector("#pin-form").onsubmit=async(e)=>{e.preventDefault();const pin=e.currentTarget.pin.value;let ok=await verifyPin(pin,appState.profile?.caregiverPinVerifier);if(!ok&&!session()?.demo&&!appState.profile?.caregiverPinVerifier&&navigator.onLine){try{await api("/caregiver/unlock",{method:"POST",body:JSON.stringify({pin})});const verifier=await createPinVerifier(pin);await db.put("profiles",{...appState.profile,caregiverPinVerifier:verifier});appState.profile.caregiverPinVerifier=verifier;ok=true;}catch{ok=false;}}if(ok){sessionStorage.setItem("caregiver_unlocked","true");closeDialog();render();}else document.querySelector("#pin-error").textContent=t("incorrectPin");};}
+function pinGate(){openDialog(`<div class="dialog-head"><div><p class="eyebrow">Private caregiver area</p><h2>${t("unlock")}</h2></div><button id="dialog-close">×</button></div><p class="muted">${t("enterPin")}</p><form id="pin-form"><div class="field"><input class="pin-input" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" required autofocus></div><p id="pin-error" role="alert"></p><div class="button-row"><button class="primary-button">Unlock</button><button type="button" class="secondary-button" id="dialog-cancel">${t("cancel")}</button></div></form>`);document.querySelector("#dialog-close").onclick=()=>{closeDialog();location.hash="#/patient"};document.querySelector("#dialog-cancel").onclick=()=>{closeDialog();location.hash="#/patient"};document.querySelector("#pin-form").onsubmit=async(e)=>{e.preventDefault();const pin=e.currentTarget.pin.value;let ok=false;if(session()?.demo){ok=await verifyPin(pin,appState.profile?.caregiverPinVerifier);}else if(navigator.onLine){try{await api("/caregiver/unlock",{method:"POST",body:JSON.stringify({pin})});const verifier=await createPinVerifier(pin);await db.put("profiles",{...appState.profile,caregiverPinVerifier:verifier});appState.profile.caregiverPinVerifier=verifier;ok=true;}catch{ok=false;}}else{ok=await verifyPin(pin,appState.profile?.caregiverPinVerifier);}if(ok){sessionStorage.setItem("caregiver_unlocked","true");closeDialog();render();}else document.querySelector("#pin-error").textContent=t("incorrectPin");};}
 async function createPinVerifier(pin){const salt=crypto.getRandomValues(new Uint8Array(16));const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(pin),"PBKDF2",false,["deriveBits"]);const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations:210000,hash:"SHA-256"},material,256);return `${toBase64(salt)}:${toBase64(new Uint8Array(bits))}`;}
-async function verifyPin(pin,verifier){if(verifier?.startsWith("demo:"))return verifier===`demo:${pin}`;if(!verifier)return false;const [s,h]=verifier.split(":");const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(pin),"PBKDF2",false,["deriveBits"]);const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt:fromBase64(s),iterations:210000,hash:"SHA-256"},material,256);return toBase64(new Uint8Array(bits))===h;}
+async function verifyPin(pin,verifier){try{if(verifier?.startsWith("demo:"))return verifier===`demo:${pin}`;if(!verifier)return false;const [s,h]=verifier.split(":");if(!s||!h)return false;const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(pin),"PBKDF2",false,["deriveBits"]);const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt:fromBase64(s),iterations:210000,hash:"SHA-256"},material,256);return toBase64(new Uint8Array(bits))===h;}catch{return false;}}
 const toBase64=(bytes)=>btoa(String.fromCharCode(...bytes));const fromBase64=(value)=>Uint8Array.from(atob(value),(c)=>c.charCodeAt(0));
 
 function confirmDelete(store,id,message){openDialog(`<div class="dialog-head"><h2>${message}</h2><button id="dialog-close">×</button></div><p>This item will be removed on synced family devices too.</p><div class="button-row"><button class="danger-button" id="delete-confirm">${t("delete")}</button><button class="secondary-button" id="dialog-cancel">${t("cancel")}</button></div>`);document.querySelector("#dialog-close").onclick=closeDialog;document.querySelector("#dialog-cancel").onclick=closeDialog;document.querySelector("#delete-confirm").onclick=async()=>{await tombstone(store,id);closeDialog();await refresh("Item removed.");};}
@@ -224,7 +246,9 @@ async function guardedSync(){document.querySelector("#sync-button")?.classList.a
 
 async function render(){
   await loadState(); const route=(location.hash||"#/").slice(2); const isCaregiver=route.startsWith("caregiver");
-  if(!session()&&!['','auth'].includes(route)){location.hash="#/";return;}
+  const loggedIn = !!session();
+  if(!loggedIn&&!['','auth'].includes(route)){location.hash="#/";return;}
+  if(loggedIn&&['','auth'].includes(route)){location.hash="#/patient";return;}
   if(isCaregiver&&sessionStorage.getItem("caregiver_unlocked")!=="true"){showChrome(true);pinGate();return;}
   if(activeChart){activeChart.destroy();activeChart=null;}
   if(route==="")landingPage();else if(route==="auth")authPage();else if(route==="patient")patientPage();else if(route==="games")gamesPage();else if(route.startsWith("game/"))await gamePage(route.split("/")[1]);else if(route==="reminders")remindersPage();else if(route==="companion")companionPage();else if(route==="caregiver")caregiverPage();else if(route==="caregiver/family")familyPage();else if(route==="caregiver/analytics")analyticsPage();else location.hash=session()?"#/patient":"#/";
@@ -264,7 +288,16 @@ function registerWebMCP() {
 window.addEventListener("hashchange",render);window.addEventListener("online",updateConnection);window.addEventListener("offline",updateConnection);
 window.addEventListener("beforeinstallprompt",(e)=>{e.preventDefault();installEvent=e;toast("SmritiAI is ready to install on this device.");});
 document.querySelector("#sync-button").onclick=guardedSync;document.querySelector("#voice-button").onclick=startVoice;document.querySelector("#role-button").onclick=()=>{if(location.hash.includes("caregiver")){sessionStorage.removeItem("caregiver_unlocked");location.hash="#/patient";}else location.hash="#/caregiver";};
+document.querySelector("#sign-out-button").onclick=signOut;
 dialog.addEventListener("click",(e)=>{if(e.target===dialog)closeDialog();});
-if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+// The development build must reflect the running server. Remove any service
+// worker left by an earlier offline-first build, along with its cached shell.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations()
+    .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+    .then(() => caches.keys())
+    .then((keys) => Promise.all(keys.filter((key) => key.startsWith("smritiai-")).map((key) => caches.delete(key))))
+    .catch(() => {});
+}
 setLanguage(getLanguage());updateConnection();render();
 registerWebMCP();

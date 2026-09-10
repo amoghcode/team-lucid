@@ -20,8 +20,8 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
-class RefreshRequest(BaseModel):
-    refreshToken: str = Field(min_length=20)
+class CaregiverUnlockRequest(BaseModel):
+    pin: str = Field(pattern=r"^\d{4,8}$")
 
 
 class RecordBase(BaseModel):
@@ -83,6 +83,5 @@ class SyncRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     accessToken: str
-    refreshToken: str
     tokenType: str = "bearer"
     profile: dict[str, Any]

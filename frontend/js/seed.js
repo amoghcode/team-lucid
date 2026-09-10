@@ -1,4 +1,5 @@
 import { db, timestamp, uid } from "./db.js";
+import { saveSession } from "./api.js";
 
 const daysAgo = (days, hour = 9) => { const d = new Date(); d.setDate(d.getDate() - days); d.setHours(hour, 0, 0, 0); return d.toISOString(); };
 
@@ -32,7 +33,7 @@ export async function seedDemo(force = false) {
   for (let day = 5; day >= 0; day--) await db.put("moods", { ...common, id: uid("demo-mood"), value: day % 3 === 0 ? 4 : 5, createdAt: daysAgo(day, 18) });
   await db.setSetting("seeded", true);
   await db.setSetting("demoMode", true);
-  localStorage.setItem("smritiai_session", JSON.stringify({ demo: true, profileId: "demo-profile" }));
+  saveSession({ demo: true, profileId: "demo-profile" });
 }
 
 export async function resetDemo() { await seedDemo(true); }
