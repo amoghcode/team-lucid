@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6b68">
+  <meta name="description" content="SmritiAI is a gentle, offline-first cognitive companion for families.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://localhost:8000 http://127.0.0.1:* ws://127.0.0.1:* https:; font-src 'self'; media-src 'self' blob:; worker-src 'self';">
+  <title>SmritiAI — Gentle cognitive support</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#app-main">Skip to main content</a>
+  <div id="offline-banner" class="offline-banner" hidden role="status"></div>
+  <header id="app-header" class="app-header" hidden>
+    <a class="brand" href="#/patient" aria-label="SmritiAI home">
+      <span class="brand-mark" aria-hidden="true">S</span>
+      <span><strong>SmritiAI</strong><small>स्मृति · Memory</small></span>
+    </a>
+    <div class="header-actions">
+      <button class="icon-button sync-control" id="sync-button" aria-label="Sync data" title="Sync"><span aria-hidden="true">↻</span><span>Sync</span></button>
+      <button class="icon-button" id="voice-button" aria-label="Voice help" title="Voice help"><span aria-hidden="true">🎙</span><span>Voice</span></button>
+      <button class="avatar-button" id="role-button" aria-label="Open caregiver view">Caregiver</button>
+    </div>
+  </header>
+  <main id="app-main" tabindex="-1"><div class="loading-screen"><span class="brand-mark">S</span><p>Preparing your familiar space…</p></div></main>
+  <nav id="bottom-nav" class="bottom-nav" hidden aria-label="Primary navigation">
+    <a href="#/patient" data-nav="patient"><span aria-hidden="true">🏠</span><span>Home</span></a>
+    <a href="#/games" data-nav="games"><span aria-hidden="true">🎮</span><span>Games</span></a>
+    <a href="#/reminders" data-nav="reminders"><span aria-hidden="true">🕘</span><span>Reminders</span></a>
+    <a href="#/companion" data-nav="companion"><span aria-hidden="true">💛</span><span>Companion</span></a>
+  </nav>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <dialog id="app-dialog"><div id="dialog-content"></div></dialog>
+  <script src="./config.js"></script>
+  <script src="./assets/vendor/chart.umd.js"></script>
+  <script src="./assets/vendor/jspdf.umd.min.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

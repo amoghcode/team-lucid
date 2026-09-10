@@ -1,0 +1,15 @@
+{
+  "name": "SmritiAI — Gentle Cognitive Companion",
+  "short_name": "SmritiAI",
+  "description": "Offline-first cognitive activities, reminders and family memories.",
+  "start_url": "./#/patient",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4f8f6",
+  "theme_color": "#0b6b68",
+  "categories": ["health", "lifestyle", "education"],
+  "icons": [
+    { "src": "./assets/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

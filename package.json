@@ -1,0 +1,19 @@
+{
+  "name": "smritiai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "chart.js": "4.4.7",
+    "jspdf": "4.2.1"
+  },
+  "devDependencies": {
+    "vite": "6.0.7",
+    "vitest": "2.1.8"
+  }
+}
