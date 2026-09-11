@@ -3,7 +3,7 @@ export const languages = {
 };
 
 const en = {
-  appName: "Smaran", tagline: "Familiar moments. Gentle support.", demo: "Try the guided demo",
+  appName: "SmritiAI", tagline: "Familiar moments. Gentle support.", demo: "Try the guided demo",
   login: "Sign in", register: "Create family account", email: "Email address", password: "Password",
   patientName: "Patient's name", pin: "Caregiver PIN", welcome: "Good to see you", today: "Today",
   wellness: "Cognitive wellness", notDiagnosis: "Engagement guidance only — not a diagnosis or medical advice.",
