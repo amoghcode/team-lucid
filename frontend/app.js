@@ -36,6 +36,7 @@ function calculateStreak(results) {
 }
 
 function showChrome(show = true, caregiver = false) {
+  const headerLanguage = document.querySelector("#header-language-select"); if (headerLanguage) headerLanguage.value = getLanguage();
   header.hidden = !show; bottomNav.hidden = !show || caregiver;
   document.body.classList.toggle("caregiver-mode", caregiver);
   document.body.classList.toggle("patient-mode", show && !caregiver);
@@ -65,8 +66,9 @@ function landingPage() {
   bindLanguageSelect();
 }
 
-function languageSelect() { return `<select class="language-select" id="language-select" aria-label="Language">${Object.entries(languages).map(([code, name]) => `<option value="${code}" ${getLanguage() === code ? "selected" : ""}>${name}</option>`).join("")}</select>`; }
-function bindLanguageSelect() { document.querySelector("#language-select")?.addEventListener("change", (event) => { setLanguage(event.target.value); render(); }); }
+function languageOptions() { return Object.entries(languages).map(([code, name]) => `<option value="${code}" ${getLanguage() === code ? "selected" : ""}>${name}</option>`).join(""); }
+function languageSelect() { return `<select class="language-select" id="language-select" aria-label="Language">${languageOptions()}</select>`; }
+function bindLanguageSelect() { document.querySelectorAll(".language-select").forEach((select) => select.addEventListener("change", (event) => { setLanguage(event.target.value); render(); })); }
 
 function authPage() {
   showChrome(false); let mode = "login";
@@ -244,8 +246,10 @@ function handleVoice(command){if(command.includes("game"))location.hash="#/games
 async function refresh(message,rerender=true){await loadState();if(rerender)render();if(message)toast(message);}
 async function guardedSync(){document.querySelector("#sync-button")?.classList.add("pulse");try{const result=await syncNow();toast(result.skipped?(session()?.demo?"Demo data stays on this device.":"Changes are safely queued."):"Everything is up to date.");}catch{toast("Sync will retry when the connection is ready.");}finally{document.querySelector("#sync-button")?.classList.remove("pulse");}}
 
+function routeFromLocation() { const hash = location.hash; if (hash.startsWith("#/")) return hash.slice(2); return location.pathname.replace(/^\/+|\/+$/g, ""); }
+function normalizeRouteUrl() { if (!location.hash.startsWith("#/")) return; const route = location.hash.slice(2); history.replaceState(null, "", route ? `/${route}` : "/"); }
 async function render(){
-  await loadState(); const route=(location.hash||"#/").slice(2); const isCaregiver=route.startsWith("caregiver");
+  normalizeRouteUrl(); await loadState(); const route=routeFromLocation(); const isCaregiver=route.startsWith("caregiver");
   const loggedIn = !!session();
   if(!loggedIn&&!['','auth'].includes(route)){location.hash="#/";return;}
   if(loggedIn&&['','auth'].includes(route)){location.hash="#/patient";return;}
@@ -285,9 +289,11 @@ function registerWebMCP() {
     async execute(input) { if (!input || !GAME_META[input.gameId]) throw new Error("Unknown gameId"); location.hash = `#/game/${input.gameId}`; return { gameId: input.gameId, opened: true }; }
   });
 }
-window.addEventListener("hashchange",render);window.addEventListener("online",updateConnection);window.addEventListener("offline",updateConnection);
+window.addEventListener("hashchange",render);window.addEventListener("popstate",render);window.addEventListener("online",updateConnection);window.addEventListener("offline",updateConnection);
 window.addEventListener("beforeinstallprompt",(e)=>{e.preventDefault();installEvent=e;toast("SmritiAI is ready to install on this device.");});
-document.querySelector("#sync-button").onclick=guardedSync;document.querySelector("#voice-button").onclick=startVoice;document.querySelector("#role-button").onclick=()=>{if(location.hash.includes("caregiver")){sessionStorage.removeItem("caregiver_unlocked");location.hash="#/patient";}else location.hash="#/caregiver";};
+document.querySelector("#header-language-select").innerHTML = languageOptions();
+bindLanguageSelect();
+document.querySelector("#sync-button").onclick=guardedSync;document.querySelector("#voice-button").onclick=startVoice;document.querySelector("#role-button").onclick=()=>{if(location.hash.includes("caregiver") || routeFromLocation().includes("caregiver")){sessionStorage.removeItem("caregiver_unlocked");location.hash="#/patient";}else location.hash="#/caregiver";};
 document.querySelector("#sign-out-button").onclick=signOut;
 dialog.addEventListener("click",(e)=>{if(e.target===dialog)closeDialog();});
 // The development build must reflect the running server. Remove any service
