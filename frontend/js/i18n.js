@@ -13,7 +13,7 @@ const en = {
   caregiver: "Caregiver view", home: "Home", back: "Back", sync: "Sync", online: "Online", offline: "Offline — changes are safe",
   play: "Play", easy: "Easy", medium: "Medium", hard: "Hard", score: "Score", accuracy: "Accuracy", done: "Done",
   memoryMatch: "Memory Match", objectRecall: "Object Recall", routineRecall: "Routine Recall", pattern: "Pattern Paths",
-  familyGame: "Family Faces", emotion: "Emotion Match", addReminder: "Add reminder", addFamily: "Add family member",
+  familyGame: "Family Faces", emotion: "Sequence Memory", addReminder: "Add reminder", addFamily: "Add family member",
   name: "Full name", relationship: "Relationship", photo: "Photo", save: "Save", cancel: "Cancel", delete: "Delete", edit: "Edit",
   complete: "Complete", snooze: "Snooze 10 min", medication: "Medication", hydration: "Hydration", appointment: "Appointment",
   time: "Time", category: "Category", title: "Reminder", noReminders: "No reminders yet.", familyMemories: "Family memories",

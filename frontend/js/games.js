@@ -4,9 +4,10 @@ export const GAME_META = {
   memory: { title: "Memory Match", icon: "🦏", description: "Find matching wildlife and tea-garden cards." },
   objects: { title: "Object Recall", icon: "🧺", description: "Remember familiar objects from home." },
   routine: { title: "Daily Routine", icon: "🌤️", description: "Put a gentle daily routine in order." },
-  pattern: { title: "Pattern Paths", icon: "🧵", description: "Complete patterns inspired by woven motifs." },
+  pattern: { title: "Pattern Paths", icon: "🧵", description: "Follow visual paths and discover what comes next." },
   family: { title: "Family Faces", icon: "💛", description: "Recall the names and relationships of loved ones." },
-  emotion: { title: "Emotion Match", icon: "😊", description: "Recognise feelings in friendly expressions." }
+  // Keep the legacy `emotion` id for stored-result and API compatibility.
+  emotion: { title: "Sequence Memory", icon: "✨", description: "Watch a gentle sequence, then repeat it in order." }
 };
 
 const shuffle = (items) => [...items].sort(() => Math.random() - .5);
@@ -20,7 +21,7 @@ export function startGame(game, root, options) {
     const metrics = scoreSession({ correct, attempts: Math.max(attempts, total), responseTime, targetTime: difficultyCount(options.level, [80, 65, 50]), completed: true });
     options.onComplete({ ...metrics, mistakes, responseTime: Math.round(responseTime), ...extra });
   };
-  ({ memory: memoryMatch, objects: objectRecall, routine: routineRecall, pattern: patternGame, family: familyGame, emotion: emotionGame }[game] || memoryMatch)(root, options.level, {
+  ({ memory: memoryMatch, objects: objectRecall, routine: routineRecall, pattern: patternGame, family: familyGame, emotion: sequenceMemory }[game] || memoryMatch)(root, options.level, {
     hit() { correct++; attempts++; }, miss() { mistakes++; attempts++; }, finish
   }, options.family || []);
 }
@@ -76,18 +77,41 @@ function routineRecall(root, level, score) {
 }
 
 function patternGame(root, level, score) {
-  const rounds = difficultyCount(level, [3, 4, 5]); let round = 0;
-  const patterns = [
-    { seq: ["◆", "●", "◆", "●"], answer: "◆", options: ["◆", "▲", "■"] },
-    { seq: ["🟦", "🟦", "🟩", "🟦", "🟦"], answer: "🟩", options: ["🟩", "🟨", "🟦"] },
-    { seq: ["◢", "◣", "◤", "◥"], answer: "◢", options: ["◥", "◢", "◣"] },
-    { seq: ["🌱", "🌿", "🌳", "🌱"], answer: "🌿", options: ["🌳", "🌿", "🌱"] },
-    { seq: ["1", "2", "4", "7"], answer: "11", options: ["9", "10", "11"] }
-  ];
+  const rounds = difficultyCount(level, [3, 4, 5]); let round = 0, accepting = true;
+  const patterns = {
+    easy: [
+      { label: "Alternating shapes", seq: ["◆", "●", "◆", "●"], answer: "◆", options: ["▲", "◆", "■"] },
+      { label: "Repeating colours", seq: ["🟦", "🟦", "🟩", "🟦", "🟦"], answer: "🟩", options: ["🟨", "🟦", "🟩"] },
+      { label: "Growing plant", seq: ["🌱", "🌿", "🌳", "🌱"], answer: "🌿", options: ["🌳", "🌱", "🌿"] }
+    ],
+    medium: [
+      { label: "Turning corners", seq: ["◢", "◣", "◤", "◥"], answer: "◢", options: ["◥", "◢", "◣"] },
+      { label: "One, then two", seq: ["●", "◆", "◆", "●", "◆", "◆"], answer: "●", options: ["◆", "▲", "●"] },
+      { label: "Growing steps", seq: ["1", "2", "4", "7"], answer: "11", options: ["9", "10", "11"] },
+      { label: "Woven rhythm", seq: ["🟨", "🟪", "🟪", "🟨", "🟪", "🟪"], answer: "🟨", options: ["🟪", "🟨", "🟦"] }
+    ],
+    hard: [
+      { label: "Doubling numbers", seq: ["2", "4", "8", "16"], answer: "32", options: ["24", "32", "20"] },
+      { label: "Two paths together", seq: ["▲1", "●2", "▲3", "●4", "▲5"], answer: "●6", options: ["▲6", "●6", "●5"] },
+      { label: "Growing gaps", seq: ["3", "5", "8", "12"], answer: "17", options: ["16", "18", "17"] },
+      { label: "Mirror path", seq: ["◀", "▲", "▶", "▼", "◀"], answer: "▲", options: ["▼", "▲", "▶"] },
+      { label: "Paired growth", seq: ["1", "1", "2", "2", "3", "3"], answer: "4", options: ["3", "4", "5"] }
+    ]
+  }[level] || [];
   const draw = () => {
-    const p = patterns[round]; root.innerHTML = `<p class="game-instruction">What comes next? Round ${round + 1} of ${rounds}</p><div class="pattern-row">${p.seq.map((x) => `<span>${x}</span>`).join("")}<span class="missing">?</span></div><div class="answer-row">${p.options.map((x) => `<button class="choice-card pattern-choice" data-value="${x}">${x}</button>`).join("")}</div>`;
+    accepting = true;
+    const p = patterns[round];
+    root.innerHTML = `<div class="game-progress" aria-label="Round ${round + 1} of ${rounds}"><span style="--progress:${((round + 1) / rounds) * 100}%"></span></div><p class="game-instruction">What completes this path?</p><p class="pattern-label">${p.label} · Round ${round + 1} of ${rounds}</p><div class="pattern-row" aria-label="${p.label}: ${p.seq.join(", ")}, then a missing item">${p.seq.map((x, index) => `<span><small>${index + 1}</small>${x}</span>`).join('<i aria-hidden="true">→</i>')}<i aria-hidden="true">→</i><span class="missing"><small>${p.seq.length + 1}</small>?</span></div><div class="answer-row" aria-label="Choose the next item">${p.options.map((x) => `<button class="choice-card pattern-choice" data-value="${x}" aria-label="Choose ${x}">${x}</button>`).join("")}</div><p class="game-feedback" role="status" aria-live="polite"></p>`;
   };
-  root.onclick = (event) => { const choice = event.target.closest(".pattern-choice"); if (!choice) return; choice.dataset.value === patterns[round].answer ? score.hit() : score.miss(); round++; round >= rounds ? score.finish(rounds) : draw(); };
+  root.onclick = (event) => {
+    const choice = event.target.closest(".pattern-choice"); if (!choice || !accepting) return;
+    const feedback = root.querySelector(".game-feedback");
+    if (choice.dataset.value !== patterns[round].answer) {
+      score.miss(); choice.classList.add("incorrect"); feedback.textContent = "Not quite. Look at how the path changes, then try again."; return;
+    }
+    accepting = false; score.hit(); choice.classList.add("correct"); feedback.textContent = "That completes the path!"; round++;
+    setTimeout(() => round >= rounds ? score.finish(rounds) : draw(), 650);
+  };
   draw();
 }
 
@@ -105,10 +129,53 @@ function familyGame(root, level, score, family) {
   draw();
 }
 
-function emotionGame(root, level, score) {
-  const emotions = [["😊", "Happy"], ["😌", "Calm"], ["😟", "Worried"], ["😢", "Sad"], ["😮", "Surprised"]];
-  const rounds = difficultyCount(level, [3, 4, 5]); const questions = shuffle(emotions).slice(0, rounds); let round = 0;
-  const draw = () => { const [face, answer] = questions[round]; const options = shuffle([answer, ...shuffle(emotions.map((x) => x[1]).filter((x) => x !== answer)).slice(0, 3)]); root.innerHTML = `<p class="game-instruction">How does this person feel? Round ${round + 1} of ${rounds}</p><div class="emotion-face" role="img" aria-label="Expression to recognise">${face}</div><div class="answer-row">${options.map((x) => `<button class="choice-card emotion-choice" data-value="${x}">${x}</button>`).join("")}</div>`; };
-  root.onclick = (event) => { const choice = event.target.closest(".emotion-choice"); if (!choice) return; choice.dataset.value === questions[round][1] ? score.hit() : score.miss(); round++; round >= rounds ? score.finish(rounds) : draw(); };
+function sequenceMemory(root, level, score) {
+  const tiles = [
+    { id: "leaf", icon: "🍃", label: "Leaf" },
+    { id: "sun", icon: "☀️", label: "Sun" },
+    { id: "drop", icon: "💧", label: "Water" },
+    { id: "flower", icon: "🌼", label: "Flower" }
+  ];
+  const rounds = difficultyCount(level, [3, 4, 5]);
+  const startingLength = difficultyCount(level, [2, 3, 4]);
+  const sequences = Array.from({ length: rounds }, (_, index) => Array.from({ length: startingLength + index }, () => tiles[Math.floor(Math.random() * tiles.length)].id));
+  let round = 0, input = [], accepting = false, timer;
+
+  const buttons = () => tiles.map(({ id, icon, label }) => `<button class="sequence-tile" data-value="${id}" aria-label="${label}" disabled><span aria-hidden="true">${icon}</span><small>${label}</small></button>`).join("");
+  const setControls = (enabled) => root.querySelectorAll(".sequence-tile").forEach((button) => { button.disabled = !enabled; });
+  const showSequence = () => {
+    const sequence = sequences[round]; let index = 0;
+    accepting = false; input = []; setControls(false);
+    root.querySelector(".sequence-status").textContent = "Watch the sequence";
+    root.querySelector(".sequence-progress").textContent = "";
+    const reveal = () => {
+      root.querySelectorAll(".sequence-tile").forEach((button) => button.classList.remove("active"));
+      if (index >= sequence.length) {
+        accepting = true; setControls(true); root.querySelector(".sequence-status").textContent = "Now repeat it"; return;
+      }
+      const active = root.querySelector(`[data-value="${sequence[index]}"]`); active.classList.add("active");
+      index++; timer = setTimeout(() => { active.classList.remove("active"); timer = setTimeout(reveal, 260); }, 620);
+    };
+    timer = setTimeout(reveal, 500);
+  };
+  const draw = () => {
+    const length = sequences[round].length;
+    root.innerHTML = `<div class="game-progress" aria-label="Round ${round + 1} of ${rounds}"><span style="--progress:${((round + 1) / rounds) * 100}%"></span></div><p class="game-instruction">Remember ${length} steps · Round ${round + 1} of ${rounds}</p><h2 class="sequence-status" aria-live="polite">Get ready</h2><div class="sequence-board">${buttons()}</div><div class="sequence-progress" aria-label="Your progress"></div><p class="game-feedback" role="status" aria-live="polite"></p>`;
+    showSequence();
+  };
+  root.onclick = (event) => {
+    const choice = event.target.closest(".sequence-tile"); if (!choice || !accepting) return;
+    const sequence = sequences[round], position = input.length;
+    if (choice.dataset.value !== sequence[position]) {
+      accepting = false; score.miss(); choice.classList.add("incorrect"); root.querySelector(".game-feedback").textContent = "Almost. Watch the same sequence once more.";
+      timer = setTimeout(() => { choice.classList.remove("incorrect"); showSequence(); }, 900); return;
+    }
+    input.push(choice.dataset.value); choice.classList.add("correct"); setTimeout(() => choice.classList.remove("correct"), 260);
+    root.querySelector(".sequence-progress").textContent = input.map(() => "●").join("  ");
+    if (input.length === sequence.length) {
+      accepting = false; score.hit(); setControls(false); root.querySelector(".game-feedback").textContent = "Sequence remembered!"; round++;
+      timer = setTimeout(() => round >= rounds ? score.finish(rounds) : draw(), 700);
+    }
+  };
   draw();
 }
