@@ -12,27 +12,27 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
-  <a class="skip-link" href="#app-main">Skip to main content</a>
+  <a class="skip-link" href="#app-main" data-i18n="skipContent">Skip to main content</a>
   <div id="offline-banner" class="offline-banner" hidden role="status"></div>
   <header id="app-header" class="app-header" hidden>
-    <a class="brand" href="#/patient" aria-label="SmritiAI home">
+    <a class="brand" href="#/patient" aria-label="SmritiAI home" data-i18n-aria="smritiHome">
       <span class="brand-mark" aria-hidden="true">S</span>
-      <span><strong>SmritiAI</strong><small>स्मृति · Memory</small></span>
+      <span><strong>SmritiAI</strong><small data-i18n="brandSubtitle">स्मृति · Memory</small></span>
     </a>
     <div class="header-actions">
-      <button class="icon-button sync-control" id="sync-button" aria-label="Sync data" title="Sync"><span aria-hidden="true">↻</span><span>Sync</span></button>
-      <button class="icon-button" id="voice-button" aria-label="Voice help" title="Voice help"><span aria-hidden="true">🎙</span><span>Voice</span></button>
-      <button class="avatar-button" id="role-button" aria-label="Open caregiver view">Caregiver</button>
-      <button class="icon-button" id="sign-out-button" aria-label="Sign out" title="Sign out">Sign out</button>
-      <select class="language-select header-language-select" id="header-language-select" aria-label="Language"></select>
+      <button class="icon-button sync-control" id="sync-button" aria-label="Sync data" title="Sync" data-i18n-aria="syncData" data-i18n-title="sync"><span aria-hidden="true">↻</span><span data-i18n="sync">Sync</span></button>
+      <button class="icon-button" id="voice-button" aria-label="Voice help" title="Voice help" data-i18n-aria="voice" data-i18n-title="voice"><span aria-hidden="true">🎙</span><span data-i18n="voice">Voice</span></button>
+      <button class="avatar-button" id="role-button" aria-label="Open caregiver view" data-i18n-aria="openCaregiver" data-i18n="caregiver">Caregiver</button>
+      <button class="icon-button" id="sign-out-button" aria-label="Sign out" title="Sign out" data-i18n-aria="signOut" data-i18n-title="signOut" data-i18n="signOut">Sign out</button>
+      <select class="language-select header-language-select" id="header-language-select" aria-label="Language" data-i18n-aria="language"></select>
     </div>
   </header>
-  <main id="app-main" tabindex="-1"><div class="loading-screen"><span class="brand-mark">S</span><p>Preparing your familiar space…</p></div></main>
-  <nav id="bottom-nav" class="bottom-nav" hidden aria-label="Primary navigation">
-    <a href="#/patient" data-nav="patient"><span aria-hidden="true">🏠</span><span>Home</span></a>
-    <a href="#/games" data-nav="games"><span aria-hidden="true">🎮</span><span>Games</span></a>
-    <a href="#/reminders" data-nav="reminders"><span aria-hidden="true">🕘</span><span>Reminders</span></a>
-    <a href="#/companion" data-nav="companion"><span aria-hidden="true">💛</span><span>Companion</span></a>
+  <main id="app-main" tabindex="-1"><div class="loading-screen"><span class="brand-mark">S</span><p data-i18n="preparing">Preparing your familiar space…</p></div></main>
+  <nav id="bottom-nav" class="bottom-nav" hidden aria-label="Primary navigation" data-i18n-aria="primaryNav">
+    <a href="#/patient" data-nav="patient"><span aria-hidden="true">🏠</span><span data-i18n="home">Home</span></a>
+    <a href="#/games" data-nav="games"><span aria-hidden="true">🎮</span><span data-i18n="games">Games</span></a>
+    <a href="#/reminders" data-nav="reminders"><span aria-hidden="true">🕘</span><span data-i18n="reminders">Reminders</span></a>
+    <a href="#/companion" data-nav="companion"><span aria-hidden="true">💛</span><span data-i18n="companion">Companion</span></a>
   </nav>
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
   <dialog id="app-dialog"><div id="dialog-content"></div></dialog>
