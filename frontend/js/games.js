@@ -134,7 +134,12 @@ function sequenceMemory(root, level, score) {
     { id: "leaf", icon: "🍃", label: "Leaf" },
     { id: "sun", icon: "☀️", label: "Sun" },
     { id: "drop", icon: "💧", label: "Water" },
-    { id: "flower", icon: "🌼", label: "Flower" }
+    { id: "flower", icon: "🌼", label: "Flower" },
+    { id: "bird", icon: "🐦", label: "Bird" },
+    { id: "moon", icon: "🌙", label: "Moon" },
+    { id: "tree", icon: "🌳", label: "Tree" },
+    { id: "star", icon: "⭐", label: "Star" },
+    { id: "home", icon: "🏠", label: "Home" }
   ];
   const rounds = difficultyCount(level, [3, 4, 5]);
   const startingLength = difficultyCount(level, [2, 3, 4]);
