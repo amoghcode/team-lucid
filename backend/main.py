@@ -5,7 +5,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.config import get_settings
 from app.database import client, ensure_indexes, ping
-from app.routers import auth, data
+from app.routers import auth, companion, data
 
 settings = get_settings()
 
@@ -31,3 +31,4 @@ async def health() -> dict[str, str]:
 
 app.include_router(auth.router, prefix="/api", tags=["authentication"])
 app.include_router(data.router, prefix="/api", tags=["family data"])
+app.include_router(companion.router, prefix="/api", tags=["companion"])

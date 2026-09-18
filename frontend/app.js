@@ -18,15 +18,18 @@ let installEvent;
 const escapeHTML = (value = "") => String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
 const session = () => getSession();
 const formatDate = (date) => new Intl.DateTimeFormat(locale(), { weekday: "long", day: "numeric", month: "long" }).format(date);
+const formatDateTime = (date) => new Intl.DateTimeFormat(locale(), { dateStyle: "medium", timeStyle: "short" }).format(new Date(date));
 const iconFor = (category) => ({ medication: "💊", hydration: "💧", exercise: "🌿", appointment: "📅", daily: "☀️" })[category] || "◷";
 
 async function loadState() {
-  const [profiles, reminders, moods, results, family] = await Promise.all(["profiles", "reminders", "moods", "gameResults", "familyMembers"].map((s) => db.all(s)));
+  const [profiles, reminders, moods, results, family, alerts] = await Promise.all(["profiles", "reminders", "moods", "gameResults", "familyMembers", "alerts"].map((s) => db.all(s)));
   appState = { profile: active(profiles)[0], reminders: active(reminders), moods: active(moods), results: active(results), family: active(family) };
   appState.analytics = calculateAnalytics(appState.results, appState.moods, appState.reminders);
   appState.streak = calculateStreak(appState.results);
   appState.achievements = achievementState({ results: appState.results, reminders: appState.reminders, streak: appState.streak });
-  appState.alerts = detectAlerts(appState.results, appState.reminders, appState.profile?.lastActiveAt || timestamp());
+  const detected = detectAlerts(appState.results, appState.reminders, appState.profile?.lastActiveAt || timestamp()).map((alert) => ({ ...alert, source: "insight" }));
+  appState.alerts = [...active(alerts).filter((alert) => alert.status !== "resolved"), ...detected]
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 }
 
 function calculateStreak(results) {
@@ -163,10 +166,33 @@ function companionPage() {
   showChrome(true); setActiveNav("companion");
   const prompts = [[t("festivalPrompt"),"festival"], [t("childhoodPrompt"),"childhood"], [t("laughPrompt"),"general"], [t("mealPrompt"),"general"]];
   main.innerHTML = `<section class="page"><div class="page-heading"><div><p class="eyebrow">${t("listeningSpace")}</p><h1>${t("companion")}</h1><p class="lead">${t("companionLead")}</p></div></div><div class="companion-shell"><aside class="card"><h2>${t("memoryPrompts")}</h2><div class="prompt-cards">${prompts.map(([label,intent])=>`<button class="prompt-card" data-prompt="${label}" data-intent="${intent}">${label}</button>`).join("")}</div><button class="secondary-button" id="story-button" style="margin-top:1rem;width:100%">📖 ${t("story")}</button></aside><article class="card chat-card"><div class="chat-log" id="chat-log"><div class="bubble">${t("supportive")} ${t("shareMemoryQ")}</div></div><form class="chat-form" id="chat-form"><input name="message" aria-label="${t("companionPrompt")}" placeholder="${t("companionPrompt")}" autocomplete="off"><button class="primary-button">${t("send")}</button></form></article></div></section>`;
-  const respond = (message, intent) => { const log = document.querySelector("#chat-log"); log.insertAdjacentHTML("beforeend", `<div class="bubble user">${escapeHTML(message)}</div>`); const response = companionResponse(message, intent); setTimeout(()=>{ log.insertAdjacentHTML("beforeend", `<div class="bubble">${escapeHTML(response)}</div>`); log.scrollTop=log.scrollHeight; speak(response); },350); };
-  document.querySelector("#chat-form").onsubmit = (e) => { e.preventDefault(); const input=e.currentTarget.message; if(input.value.trim()) respond(input.value.trim()); input.value=""; };
+  const respond = async (message, intent) => {
+    const log = document.querySelector("#chat-log");
+    const pendingId = uid("companion");
+    log.insertAdjacentHTML("beforeend", `<div class="bubble user">${escapeHTML(message)}</div><div class="bubble" id="${pendingId}">${t("connecting")}</div>`);
+    log.scrollTop = log.scrollHeight;
+    const guarded = companionGuardrail(message);
+    let response = guarded;
+    if (!response && !session()?.demo && navigator.onLine) {
+      try {
+        const result = await api("/companion/message", { method: "POST", body: JSON.stringify({ message, language: getLanguage() }) });
+        response = result.reply;
+      } catch { response = companionResponse(message, intent); }
+    }
+    response ||= companionResponse(message, intent);
+    const pending = document.getElementById(pendingId);
+    if (pending) pending.textContent = response;
+    log.scrollTop = log.scrollHeight;
+  };
+  document.querySelector("#chat-form").onsubmit = async (e) => { e.preventDefault(); const input=e.currentTarget.message; const message=input.value.trim(); input.value=""; if(message) await respond(message); };
   document.querySelectorAll("[data-prompt]").forEach((b)=>b.onclick=()=>respond(b.dataset.prompt,b.dataset.intent));
   document.querySelector("#story-button").onclick=()=>respond(t("storyRequest"),"story");
+}
+
+function companionGuardrail(message) {
+  if (/\b(kill myself|suicide|end my life|want to die|self[- ]?harm|hurt myself|hurt someone|मार डाल|आत्महत्या|মৰি যাওঁ|আত্মহত্যা|মরে যেতে|ꯑꯁꯤꯕ)\b/i.test(message)) return t("companionCrisis");
+  if (/(?:\b(?:write|generate|create|show|explain|debug|fix|build|help\s+with)\b.{0,60}\b(?:code|program|algorithm|function|class|script|regex)\b)|\b(?:coding|programming|python|javascript|typescript|c\+\+|html|css|sql|api|github|docker|kubernetes)\b|(?:कोड|কোড)/i.test(message)) return t("companionScope");
+  return "";
 }
 
 function companionResponse(message, intent) {
@@ -184,7 +210,7 @@ function caregiverShell(activeRoute, content) {
 
 function caregiverPage() {
   showChrome(true,true); const a=appState.analytics;
-  main.innerHTML=caregiverShell("caregiver",`<div class="page-heading"><div><p class="eyebrow">${t("caregiverOverview")}</p><h1>${t("patientWeek", { name: escapeHTML(appState.profile?.patientName || t("patient")) })}</h1><p class="lead">${t("caregiverLead")}</p></div><button class="primary-button" id="download-report">↓ ${t("report")}</button></div><div class="metric-grid"><div class="metric-card"><small>${t("wellnessScore")}</small><strong>${a.overall}</strong><p class="tiny-note">${t("engagementIndicator")}</p></div><div class="metric-card"><small>${t("gamesPlayedLabel")}</small><strong>${a.attempts}</strong><p class="tiny-note">${t("recordedSessions")}</p></div><div class="metric-card"><small>${t("adherence")}</small><strong>${a.adherence}%</strong><p class="tiny-note">${t("currentRecords")}</p></div><div class="metric-card"><small>${t("dailyStreak")}</small><strong>${appState.streak}</strong><p class="tiny-note">${t("consecutiveDays")}</p></div></div><div class="analytics-grid"><article class="card chart-wrap"><div class="page-heading"><div><p class="eyebrow">${t("sevenDayPattern")}</p><h2>${t("cognitiveEngagement")}</h2></div><a class="text-button" href="#/caregiver/analytics">${t("details")} →</a></div><canvas id="trend-chart" aria-label="${t("sevenDayTrend")}"></canvas></article><article class="card"><p class="eyebrow">${t("needsAttention")}</p><h2>${t("alerts")}</h2><div class="alert-list">${appState.alerts.length?appState.alerts.map((x)=>`<div class="alert">${escapeHTML(translateValue(x.message))}</div>`).join(""):`<div class="empty-state"><span>✓</span><p>${t("noAlerts")}</p></div>`}</div></article></div><article class="card" style="margin-top:1rem"><div class="page-heading"><div><p class="eyebrow">${t("encouragement")}</p><h2>${t("achievements")}</h2></div></div><div class="achievement-grid">${appState.achievements.map((x)=>`<div class="achievement ${x.unlocked?"unlocked":""}"><span>${x.unlocked?"🏅":"○"}</span><b>${translateValue(x.name)}</b></div>`).join("")}</div></article><p class="tiny-note" style="margin-top:1rem">${t("notDiagnosis")}</p>`);
+  main.innerHTML=caregiverShell("caregiver",`<div class="page-heading"><div><p class="eyebrow">${t("caregiverOverview")}</p><h1>${t("patientWeek", { name: escapeHTML(appState.profile?.patientName || t("patient")) })}</h1><p class="lead">${t("caregiverLead")}</p></div><button class="primary-button" id="download-report">↓ ${t("report")}</button></div><div class="metric-grid"><div class="metric-card"><small>${t("wellnessScore")}</small><strong>${a.overall}</strong><p class="tiny-note">${t("engagementIndicator")}</p></div><div class="metric-card"><small>${t("gamesPlayedLabel")}</small><strong>${a.attempts}</strong><p class="tiny-note">${t("recordedSessions")}</p></div><div class="metric-card"><small>${t("adherence")}</small><strong>${a.adherence}%</strong><p class="tiny-note">${t("currentRecords")}</p></div><div class="metric-card"><small>${t("dailyStreak")}</small><strong>${appState.streak}</strong><p class="tiny-note">${t("consecutiveDays")}</p></div></div><div class="analytics-grid"><article class="card chart-wrap"><div class="page-heading"><div><p class="eyebrow">${t("sevenDayPattern")}</p><h2>${t("cognitiveEngagement")}</h2></div><a class="text-button" href="#/caregiver/analytics">${t("details")} →</a></div><canvas id="trend-chart" aria-label="${t("sevenDayTrend")}"></canvas></article><article class="card"><p class="eyebrow">${t("needsAttention")}</p><h2>${t("alerts")}</h2><div class="alert-list">${appState.alerts.length?appState.alerts.map((x)=>`<div class="alert ${x.type==="sos"?"alert-sos":""}"><div class="alert-head"><strong>${x.type==="sos"?`SOS · ${t("emergency")}`:t("alerts")}</strong>${x.createdAt?`<time datetime="${escapeHTML(x.createdAt)}">${escapeHTML(formatDateTime(x.createdAt))}</time>`:""}</div><p>${escapeHTML(translateValue(x.message))}</p></div>`).join(""):`<div class="empty-state"><span>✓</span><p>${t("noAlerts")}</p></div>`}</div></article></div><article class="card" style="margin-top:1rem"><div class="page-heading"><div><p class="eyebrow">${t("encouragement")}</p><h2>${t("achievements")}</h2></div></div><div class="achievement-grid">${appState.achievements.map((x)=>`<div class="achievement ${x.unlocked?"unlocked":""}"><span>${x.unlocked?"🏅":"○"}</span><b>${translateValue(x.name)}</b></div>`).join("")}</div></article><p class="tiny-note" style="margin-top:1rem">${t("notDiagnosis")}</p>`);
   bindCaregiverNav(); document.querySelector("#download-report").onclick=downloadReport; drawTrendChart();
 }
 
@@ -227,7 +253,7 @@ async function downloadReport(){
   doc.setFontSize(9);doc.setTextColor(94,115,113);doc.text("SmritiAI supports cognitive engagement. This report is not a diagnosis or medical advice.",40,805);doc.save(`SmritiAI-${(appState.profile?.patientName||"report").replace(/\s+/g,"-")}.pdf`);toast("PDF report downloaded.");
 }
 
-async function confirmSOS(){openDialog(`<div class="dialog-head"><div><p class="eyebrow" style="color:var(--danger)">${t("pleaseConfirm")}</p><h2>${t("alertCaregiverQ")}</h2></div><button id="dialog-close" aria-label="${t("close")}">×</button></div><p>${t("emergencyNote")}</p><div class="button-row"><button class="danger-button" id="confirm-sos">${t("yesAlert")}</button><button class="secondary-button" id="dialog-cancel">${t("cancel")}</button></div>`);document.querySelector("#dialog-close").onclick=closeDialog;document.querySelector("#dialog-cancel").onclick=closeDialog;document.querySelector("#confirm-sos").onclick=async()=>{await db.save("alerts",{type:"sos",message:"Emergency help was requested from the patient dashboard.",status:"active",demoOnly:!!session()?.demo},!session()?.demo);closeDialog();const button=document.querySelector("#sos-button");button?.classList.add("pulse");beep();toast(t("alertRecorded"));speak(t("alertReassurance"));};}
+async function confirmSOS(){openDialog(`<div class="dialog-head"><div><p class="eyebrow" style="color:var(--danger)">${t("pleaseConfirm")}</p><h2>${t("alertCaregiverQ")}</h2></div><button id="dialog-close" aria-label="${t("close")}">×</button></div><p>${t("emergencyNote")}</p><div class="button-row"><button class="danger-button" id="confirm-sos">${t("yesAlert")}</button><button class="secondary-button" id="dialog-cancel">${t("cancel")}</button></div>`);document.querySelector("#dialog-close").onclick=closeDialog;document.querySelector("#dialog-cancel").onclick=closeDialog;document.querySelector("#confirm-sos").onclick=async()=>{await db.save("alerts",{type:"sos",severity:"urgent",message:"Emergency help was requested from the patient dashboard.",status:"active",source:"patient-dashboard",demoOnly:!!session()?.demo},!session()?.demo);if(!session()?.demo&&navigator.onLine){try{await syncNow();}catch{/* The queued SOS log will retry through normal sync. */}}closeDialog();const button=document.querySelector("#sos-button");button?.classList.add("pulse");beep();toast(t("alertRecorded"));speak(t("alertReassurance"));};}
 function beep(){const AudioContext=globalThis.AudioContext||globalThis.webkitAudioContext;if(!AudioContext)return;const ctx=new AudioContext(),o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=620;g.gain.setValueAtTime(.08,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.7);o.start();o.stop(ctx.currentTime+.7);}
 
 function pinGate(){openDialog(`<div class="dialog-head"><div><p class="eyebrow">${t("privateCaregiver")}</p><h2>${t("unlock")}</h2></div><button id="dialog-close" aria-label="${t("close")}">×</button></div><p class="muted">${t("enterPin")}</p><form id="pin-form"><div class="field"><input class="pin-input" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" required autofocus></div><p id="pin-error" role="alert"></p><div class="button-row"><button class="primary-button">${t("unlock")}</button><button type="button" class="secondary-button" id="dialog-cancel">${t("cancel")}</button></div></form>`);document.querySelector("#dialog-close").onclick=()=>{closeDialog();location.hash="#/patient"};document.querySelector("#dialog-cancel").onclick=()=>{closeDialog();location.hash="#/patient"};document.querySelector("#pin-form").onsubmit=async(e)=>{e.preventDefault();const pin=e.currentTarget.pin.value;let ok=false;if(session()?.demo){ok=await verifyPin(pin,appState.profile?.caregiverPinVerifier);}else if(navigator.onLine){try{await api("/caregiver/unlock",{method:"POST",body:JSON.stringify({pin})});const verifier=await createPinVerifier(pin);await db.put("profiles",{...appState.profile,caregiverPinVerifier:verifier});appState.profile.caregiverPinVerifier=verifier;ok=true;}catch{ok=false;}}else{ok=await verifyPin(pin,appState.profile?.caregiverPinVerifier);}if(ok){sessionStorage.setItem("caregiver_unlocked","true");closeDialog();render();}else document.querySelector("#pin-error").textContent=t("incorrectPin");};}

@@ -1,6 +1,6 @@
 # SmritiAI
 
-SmritiAI is a vanilla JavaScript, offline-first PWA for gentle cognitive engagement and family-supported routines. It includes six playable activities, reminders, family-photo recognition, multilingual UI, a rule-based companion, caregiver analytics, and PDF reporting. It is an assistive engagement tool, not a diagnostic or emergency-response service.
+SmritiAI is a vanilla JavaScript, offline-first PWA for gentle cognitive engagement and family-supported routines. It includes six playable activities, reminders, family-photo recognition, multilingual UI, a safeguarded Gemini companion, caregiver analytics, and PDF reporting. It is an assistive engagement tool, not a diagnostic or emergency-response service.
 
 ## Data flow
 
@@ -39,11 +39,11 @@ The frontend sends authenticated requests to FastAPI. The API scopes each reques
 
 1. Run `npm install`.
 2. Run `npm run dev` for the PWA.
-3. Copy `backend/.env.example` to `backend/.env` and provide a MongoDB connection plus secure JWT secret.
+3. Copy `backend/.env.example` to `backend/.env` and provide a MongoDB connection, a secure JWT secret, and a free Gemini API key from Google AI Studio as `GEMINI_API_KEY`. The default model is `gemini-3.8-flash`; override it with `GEMINI_MODEL` if needed.
 4. Install `backend/requirements.txt`, then run `uvicorn main:app --reload` from `backend/`.
 
 The guided demo is local-only and uses fictional data. Its caregiver PIN is `2468`.
 
 ## Production
 
-`npm run build` creates the static `dist/` directory. Set `frontend/config.js` to the public HTTPS API URL before building. `render.yaml` describes the FastAPI deployment; set `MONGODB_URI` and `ALLOWED_ORIGINS` in the service environment.
+`npm run build` creates the static `dist/` directory. Set `frontend/config.js` to the public HTTPS API URL before building. `render.yaml` describes the FastAPI deployment; set `MONGODB_URI`, `ALLOWED_ORIGINS`, and `GEMINI_API_KEY` in the service environment. The Gemini key is only read by the backend and must never be added to frontend configuration.

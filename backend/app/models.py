@@ -85,3 +85,8 @@ class TokenResponse(BaseModel):
     accessToken: str
     tokenType: str = "bearer"
     profile: dict[str, Any]
+
+
+class CompanionRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=1000)
+    language: Literal["en", "hi", "as", "bn", "mni"] = "en"
